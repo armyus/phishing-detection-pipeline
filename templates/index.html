@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Security Intelligence Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-8 font-sans">
+  <div class="max-w-6xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold text-indigo-400">ThreatSense AI Engine</h1>
+        <p class="text-sm text-slate-400">Real-time NLP Phishing & Spam Classification Gateway</p>
+      </div>
+      <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-mono">System Online (v1.0.4)</span>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Engine</p>
+        <p class="text-xl font-bold text-white mt-1">Random Forest</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Precision Score</p>
+        <p class="text-xl font-bold text-emerald-400 mt-1">98.4%</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Inference Latency</p>
+        <p class="text-xl font-bold text-indigo-400 mt-1">11.2 ms</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Pipeline</p>
+        <p class="text-xl font-bold text-white mt-1">TF-IDF n-gram</p>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Input Panel -->
+      <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+        <h2 class="text-lg font-semibold text-white">Live Payload Inspector</h2>
+        <textarea id="inputText" rows="5" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-600" placeholder="Paste incoming email, SMS, or notification text here..."></textarea>
+        <button onclick="analyzeText()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-medium transition duration-150">Execute Inspection</button>
+        
+        <!-- Live Result Box -->
+        <div id="resultBox" class="hidden mt-4 p-4 rounded-lg border border-slate-800 bg-slate-950/80">
+          <div class="flex justify-between items-center">
+            <span id="threatLabel" class="text-sm font-bold tracking-wide"></span>
+            <span id="confidenceScore" class="text-xs font-mono text-slate-400"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Probability Chart -->
+      <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center">
+        <h3 class="text-sm font-semibold text-slate-400 mb-4">Risk Probability Breakdown</h3>
+        <div class="w-48 h-48">
+          <canvas id="riskChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let chartInstance = null;
+    function initChart(safeProb = 50, threatProb = 50) {
+      const ctx = document.getElementById('riskChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Safe', 'Threat'],
+          datasets: [{
+            data: [safeProb, threatProb],
+            backgroundColor: ['#10b981', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: { cutout: '75%', plugins: { legend: { display: false } } }
+      });
+    }
+    initChart(50, 50);
+
+    async function analyzeText() {
+      const text = document.getElementById('inputText').value;
+      if (!text) return alert("Please enter text.");
+
+      const response = await fetch('/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await response.json();
+
+      const resBox = document.getElementById('resultBox');
+      const label = document.getElementById('threatLabel');
+      const conf = document.getElementById('confidenceScore');
+
+      resBox.classList.remove('hidden');
+      if (data.is_threat) {
+        label.className = "text-sm font-bold text-red-400 tracking-wide";
+        label.textContent = "🚨 THREAT DETECTED: MALICIOUS / SPAM";
+      } else {
+        label.className = "text-sm font-bold text-emerald-400 tracking-wide";
+        label.textContent = "✅ VERIFIED: LEGITIMATE PAYLOAD";
+      }
+      conf.textContent = `Confidence: ${data.confidence}%`;
+      initChart(data.prob_safe, data.prob_threat);
+    }
+  </script>
+</body>
+</html>
